@@ -1,0 +1,215 @@
+from ursina import *
+import random
+
+
+
+
+head = None
+tail = []
+food = None
+walls = []
+score = 0
+level = 1
+
+grid_size = 0.5  # The size of each grid cell
+
+current_direction = Vec2(0, 0)  # Initial direction, for example, upwards
+previous_head_position = Vec2(0, 0)  # Initialize with the initial position of the head
+next_direction = Vec2(0, 0)  # Add this with your global variables
+
+movement_speed = 0.1  # Time in seconds between each movement step
+movement_timer = 0  # Timer to track movement intervals
+
+
+def create_snake():
+    global head, tail
+    head = Entity(model='quad', color=color.green, position=(0, 0), scale=(grid_size, grid_size), collider='box')
+    tail = []
+
+def create_food():
+    global food
+    food = Entity(model='circle', color=color.red, scale=(grid_size, grid_size), collider='box')
+
+    respawn_food()
+
+def create_walls():
+    global walls
+    wall_thickness = grid_size  # Can be adjusted based on desired wall thickness
+    board_width = 20  # Adjust to your desired board width
+    board_height = 10  # Adjust to your desired board height
+
+    walls = [
+        Entity(model='quad', color=color.gray, position=Vec2(0, board_height/2), scale=Vec2(board_width, wall_thickness), collider='box'),  # Top wall
+        Entity(model='quad', color=color.gray, position=Vec2(0, -board_height/2), scale=Vec2(board_width, wall_thickness), collider='box'),  # Bottom wall
+        Entity(model='quad', color=color.gray, position=Vec2(-board_width/2, 0), scale=Vec2(wall_thickness, board_height), collider='box'),  # Left wall
+        Entity(model='quad', color=color.gray, position=Vec2(board_width/2, 0), scale=Vec2(wall_thickness, board_height), collider='box')  # Right wall
+    ]
+
+
+def update():
+    global movement_timer, current_direction, score, level, movement_speed
+
+    score_text.text = f"Score: {score}"
+
+    # Level up
+    if score >= 5 * level:
+        level += 1
+        level_text.text = f"Level: {level}"
+        movement_speed *= 0.9  # Increase the speed by 10%
+    
+
+    # Input checks
+    if held_keys['d']:
+        current_direction = Vec2(grid_size, 0)
+    elif held_keys['a']:
+        current_direction = Vec2(-grid_size, 0)
+    elif held_keys['w']:
+        current_direction = Vec2(0, grid_size)
+    elif held_keys['s']:
+        current_direction = Vec2(0, -grid_size)
+
+    # Timer checks
+    movement_timer += time.dt
+    if movement_timer >= movement_speed:
+        movement_timer = 0
+        move_snake()  # Call without argument
+        check_collisions()
+
+# Adjust the direction based on key presses
+def input(key):
+    global next_direction
+    if key == 'd' or key == 'right':
+        next_direction = Vec2(grid_size, 0)
+    elif key == 'a' or key == 'left':
+        next_direction = Vec2(-grid_size, 0)
+    elif key == 'w' or key == 'up':
+        next_direction = Vec2(0, grid_size)
+    elif key == 's' or key == 'down':
+        next_direction = Vec2(0, -grid_size)
+
+def move_snake():
+    global head, current_direction, previous_head_position
+    if head is None:
+        return
+
+    # Update previous head position
+    previous_head_position = head.position
+
+    # Update head position based on current direction
+    head.position += current_direction
+
+    # Move the tail
+    if len(tail) > 0:
+        for i in range(len(tail) - 1, 0, -1):
+            tail[i].position = tail[i-1].position
+        tail[0].position = previous_head_position
+
+def check_collisions():
+    global score  # Add this line
+
+    # Check for collision with food
+    if (head.x, head.y) == (food.x, food.y):
+        grow_snake()
+        respawn_food()
+        score += 1
+
+    # Collision with tail
+    for segment in tail[1:]:  # Skip the first segment to avoid false collision
+        if (head.x, head.y) == (segment.x, segment.y):
+            game_over()
+            return
+
+    # Check for collision with walls
+    for wall in walls:
+        if head.intersects(wall).hit:
+            game_over()
+
+def grow_snake():
+    global tail, previous_head_position
+    if len(tail) > 0:
+        new_segment_position = tail[-1].position
+    else:
+        # If it's the first segment, place it opposite to the current direction
+        new_segment_position = head.position - current_direction
+
+    # Adjust the scale of the new segment to match the grid size
+    new_segment = Entity(model='quad', color=color.green, position=new_segment_position, scale=(grid_size, grid_size), collider='box')
+    tail.append(new_segment)
+
+
+def respawn_food():
+    global food, head, tail
+
+    # Define margins as before
+    margin_x = 2
+    margin_y = 2
+
+    x_range = range(-8 + margin_x, 8 - margin_x)
+    y_range = range(-4 + margin_y, 4 - margin_y)
+
+    valid_position_found = False
+    while not valid_position_found:
+        new_position = (random.choice(x_range), random.choice(y_range))
+        if new_position != head.position and new_position not in [segment.position for segment in tail]:
+            valid_position_found = True
+
+    food.position = new_position
+
+def game_over():
+    global head, tail, food, walls, score, current_direction, previous_head_position, movement_timer, level
+
+    print(f"Game Over! Score: {score}")
+
+    # Reset score and game entities
+    score = 0
+    level = 1
+
+    # Stop the movement
+    current_direction = Vec2(0, 0)
+    movement_timer = 0  # Reset the movement timer to prevent further movement updates
+
+    # Reset previous head position
+    previous_head_position = None
+
+    # Destroy and recreate game entities
+    if head:
+        destroy(head)
+    for segment in tail:
+        destroy(segment)
+    if food:
+        destroy(food)
+
+    # Recreate game entities
+    create_snake()
+    create_food()
+    create_walls()
+
+    # Reset tail list
+    tail = []
+
+
+
+
+if __name__ == '__main__':
+    app = Ursina()
+
+    score_text = Text(text="Score: 0", position=(-0.7, 0.45), scale=2, color=color.white)
+    level_text = Text(text="Level: 1", position=(0.7, 0.45), scale=2, color=color.white)
+
+    window.title = "Snake Game"
+    window.borderless = False
+    window.fullscreen = False
+    window.exit_button.visible = False
+    window.fps_counter.enabled = True
+    window.fps_counter.enabled = False
+    window.entity_counter.enabled = False
+    window.collider_counter.enabled = False
+
+    camera.orthographic = True
+    camera.fov = 20
+
+    create_snake()
+    create_food()
+    create_walls()
+
+    app.run()
