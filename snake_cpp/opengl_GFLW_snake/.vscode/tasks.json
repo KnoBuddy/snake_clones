@@ -1,0 +1,46 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build chatSnake",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g",
+                "${workspaceFolder}/chatSnake.cpp",
+                "-o",
+                "${workspaceFolder}/chatSnake.exe",
+                "-I",
+                "C:/GLFW/include",
+                "-I",
+                "C:/glad/include",
+                "-I",
+                "C:/freeglut/include",
+                "-I",
+                "C:/GLEW/glew-2.1.0/include",
+                "-L",
+                "C:/GLFW/lib-mingw-w64",
+                "-L",
+                "C:/freeglut/lib/x64",
+                "-L",
+                "C:/GLEW/glew-2.1.0/lib/Release/x64",
+                "-lglfw3",
+                "-lopengl32",
+                "-lgdi32",
+                "-lglew32",
+                "-lfreeglut"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+        
+    ]
+}
